@@ -3,13 +3,13 @@ import random
 import time
 
 class MemoryGame:
-    def __init__(self, parent_canvas, callback):
-        self.canvas = parent_canvas
+    def __init__(self, parent_window, callback):
+        """Juego de memoria"""
         self.callback = callback
         self.sequence = []
         self.player_sequence = []
         self.level = 1
-        self.max_level = 5
+        self.max_level = 10
         self.colors = ["ROJO", "AZUL", "VERDE", "AMARILLO"]
         self.color_hex = {
             "ROJO": "#f44336",
@@ -18,9 +18,49 @@ class MemoryGame:
             "AMARILLO": "#FFC107"
         }
         self.game_closed = False
-        self.widgets = []
         self.waiting_player = False
         self.button_rects = {}
+        
+        # Crear ventana INDEPENDIENTE
+        self.window = tk.Toplevel()
+        self.window.title("Juego de Memoria")
+        
+        # CRÍTICO: SIEMPRE en frente
+        self.window.attributes("-topmost", True)
+        self.window.focus_force()
+        self.window.grab_set()
+        
+        # Tamaño y posición centrada
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        width = 900
+        height = 700
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        
+        self.window.geometry(f"{width}x{height}+{x}+{y}")
+        self.window.configure(bg="#1a1a1a")
+        
+        # Canvas
+        self.canvas = tk.Canvas(self.window, bg="#1a1a1a", 
+                               highlightthickness=0, width=width, height=height)
+        self.canvas.pack(fill="both", expand=True)
+        
+        # GEOMETRÍA después de pack
+        w, h = 700, 500
+        self.window.geometry(f"{w}x{h}")
+        self.window.update_idletasks()
+        self.window.update()
+        
+        # CENTRAR después de todo
+        screen_w = self.window.winfo_screenwidth()
+        screen_h = self.window.winfo_screenheight()
+        x = (screen_w - w) // 2
+        y = (screen_h - h) // 2
+        self.window.geometry(f"+{x}+{y}")
+        
+        self.widgets = []
     
     def run(self):
         """Inicia el juego"""
@@ -35,44 +75,37 @@ class MemoryGame:
         center_x = canvas_width // 2
         center_y = canvas_height // 2
         
-        # Fondo
-        bg = self.canvas.create_rectangle(
-            0, 0, canvas_width, canvas_height,
-            fill="#1a1a1a", outline=""
-        )
-        self.widgets.append(bg)
-        
         # Título
         title = self.canvas.create_text(
-            center_x, center_y - 120,
-            text="🧠 Juego de Memoria 🧠",
-            font=("Arial", 24, "bold"),
+            center_x, center_y - 150,
+            text="JUEGO DE MEMORIA",
+            font=("Arial", 28, "bold"),
             fill="white"
         )
         self.widgets.append(title)
         
         # Instrucciones
         inst = self.canvas.create_text(
-            center_x, center_y - 50,
-            text="Memoriza la secuencia de colores\ny repítela correctamente",
-            font=("Arial", 16),
-            fill="white",
+            center_x, center_y - 70,
+            text="Memoriza la secuencia de colores\ny repitela correctamente",
+            font=("Arial", 18),
+            fill="yellow",
             justify="center"
         )
         self.widgets.append(inst)
         
         # Botón comenzar
         btn_rect = self.canvas.create_rectangle(
-            center_x - 80, center_y + 60,
-            center_x + 80, center_y + 110,
-            fill="#4CAF50", outline="white", width=2
+            center_x - 100, center_y + 70,
+            center_x + 100, center_y + 130,
+            fill="#4CAF50", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(
-            center_x, center_y + 85,
+            center_x, center_y + 100,
             text="COMENZAR",
-            font=("Arial", 14, "bold"),
+            font=("Arial", 16, "bold"),
             fill="white"
         )
         self.widgets.append(btn_text)
@@ -101,52 +134,45 @@ class MemoryGame:
         center_x = canvas_width // 2
         center_y = canvas_height // 2
         
-        # Fondo
-        bg = self.canvas.create_rectangle(
-            0, 0, canvas_width, canvas_height,
-            fill="#1a1a1a", outline=""
-        )
-        self.widgets.append(bg)
-        
         # Nivel
         level_text = self.canvas.create_text(
-            center_x, 40,
+            center_x, 60,
             text=f"Nivel {self.level} / {self.max_level}",
-            font=("Arial", 18, "bold"),
+            font=("Arial", 20, "bold"),
             fill="white"
         )
         self.widgets.append(level_text)
         
         # Status
         self.status_id = self.canvas.create_text(
-            center_x, 80,
+            center_x, 110,
             text="Memoriza la secuencia...",
-            font=("Arial", 14),
+            font=("Arial", 16),
             fill="#aaaaaa"
         )
         self.widgets.append(self.status_id)
         
         # Botones de colores (2x2)
         positions = [
-            (center_x - 100, center_y - 50),
-            (center_x + 100, center_y - 50),
-            (center_x - 100, center_y + 80),
-            (center_x + 100, center_y + 80)
+            (center_x - 130, center_y - 70),
+            (center_x + 130, center_y - 70),
+            (center_x - 130, center_y + 100),
+            (center_x + 130, center_y + 100)
         ]
         
         self.button_rects = {}
         for color, pos in zip(self.colors, positions):
             rect = self.canvas.create_rectangle(
-                pos[0] - 60, pos[1] - 40,
-                pos[0] + 60, pos[1] + 40,
-                fill=self.color_hex[color], outline="white", width=3
+                pos[0] - 80, pos[1] - 50,
+                pos[0] + 80, pos[1] + 50,
+                fill=self.color_hex[color], outline="white", width=4
             )
             self.widgets.append(rect)
             
             text = self.canvas.create_text(
                 pos[0], pos[1],
                 text=color,
-                font=("Arial", 12, "bold"),
+                font=("Arial", 14, "bold"),
                 fill="white"
             )
             self.widgets.append(text)
@@ -163,7 +189,7 @@ class MemoryGame:
         if self.game_closed or index >= len(self.sequence):
             if index >= len(self.sequence):
                 try:
-                    self.canvas.itemconfig(self.status_id, text="¡Tu turno! Repite la secuencia")
+                    self.canvas.itemconfig(self.status_id, text="Tu turno - Repite la secuencia")
                 except:
                     pass
                 self.waiting_player = True
@@ -222,38 +248,31 @@ class MemoryGame:
         center_x = canvas_width // 2
         center_y = canvas_height // 2
         
-        # Fondo
-        bg = self.canvas.create_rectangle(
-            0, 0, canvas_width, canvas_height,
-            fill="#1a1a1a", outline=""
-        )
-        self.widgets.append(bg)
-        
         # Resultado
         if won:
             result = self.canvas.create_text(
-                center_x, center_y - 80,
-                text="🎉 ¡VICTORIA! 🎉",
-                font=("Arial", 32, "bold"),
+                center_x, center_y - 100,
+                text="VICTORIA",
+                font=("Arial", 40, "bold"),
                 fill="#4CAF50"
             )
             details = self.canvas.create_text(
-                center_x, center_y - 20,
-                text=f"¡Completaste los {self.max_level} niveles!",
-                font=("Arial", 16),
+                center_x, center_y - 30,
+                text=f"Completaste los 10 niveles",
+                font=("Arial", 18),
                 fill="white"
             )
         else:
             result = self.canvas.create_text(
-                center_x, center_y - 80,
-                text="😔 Derrota 😔",
-                font=("Arial", 32, "bold"),
+                center_x, center_y - 100,
+                text="Derrota",
+                font=("Arial", 40, "bold"),
                 fill="#f44336"
             )
             details = self.canvas.create_text(
-                center_x, center_y - 20,
+                center_x, center_y - 30,
                 text=f"Llegaste al nivel {self.level}",
-                font=("Arial", 16),
+                font=("Arial", 18),
                 fill="white"
             )
         self.widgets.append(result)
@@ -261,16 +280,16 @@ class MemoryGame:
         
         # Botón continuar
         btn_rect = self.canvas.create_rectangle(
-            center_x - 80, center_y + 60,
-            center_x + 80, center_y + 110,
-            fill="#2196F3", outline="white", width=2
+            center_x - 100, center_y + 70,
+            center_x + 100, center_y + 130,
+            fill="#2196F3", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(
-            center_x, center_y + 85,
+            center_x, center_y + 100,
             text="CONTINUAR",
-            font=("Arial", 14, "bold"),
+            font=("Arial", 16, "bold"),
             fill="white"
         )
         self.widgets.append(btn_text)
@@ -285,6 +304,10 @@ class MemoryGame:
         if not self.game_closed:
             self.game_closed = True
             self._clear_widgets()
+            try:
+                self.window.destroy()
+            except:
+                pass
             try:
                 self.callback('won' if won else 'lost')
             except:
@@ -305,6 +328,10 @@ class MemoryGame:
         if not self.game_closed:
             self.game_closed = True
             self._clear_widgets()
+            try:
+                self.window.destroy()
+            except:
+                pass
             try:
                 self.callback('closed')
             except:

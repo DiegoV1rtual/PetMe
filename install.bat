@@ -1,6 +1,6 @@
 @echo off
 echo ==========================================
-echo    CountdownPet - Instalacion
+echo    Mini-Diego - Instalacion
 echo ==========================================
 echo.
 
@@ -39,8 +39,8 @@ echo   - La ventana estara SIEMPRE VISIBLE
 echo   - NO se puede cerrar con X
 echo   - Usa Panel Admin (admin123) - Salir
 echo.
-echo Sistema de sueno:
-echo   - Optimo: 7-8 horas
-echo   - Mas de 8h: -10%% felicidad por hora extra
+echo Sistema de pausa:
+echo   - Disponible: 7h/dia
+echo   - PAUSA el contador de 168h
 echo.
 pause

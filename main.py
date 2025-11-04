@@ -4,6 +4,8 @@ import random
 import time
 import threading
 import os
+import json
+import math
 from modules.config import *
 from modules.roulette import Roulette
 from minigames.math_quiz import MathQuiz
@@ -14,10 +16,10 @@ try:
     HAS_PIL = True
 except:
     HAS_PIL = False
-    print("⚠️ Pillow no instalado - usando sprite simple")
+    print("Pillow no instalado - usando sprite simple")
 
 class PetOverlay:
-    """MASCOTA FLOTANTE que se sobrepone a TODO el sistema - CARGA DESDE assets/sprites/"""
+    """MASCOTA FLOTANTE que se sobrepone a TODO el sistema"""
     def __init__(self, parent_app):
         self.app = parent_app
         self.window = tk.Toplevel()
@@ -26,7 +28,7 @@ class PetOverlay:
         # CRÍTICO: Ventana transparente y SIEMPRE SOBRE TODO
         self.window.attributes("-topmost", True)
         self.window.attributes("-transparentcolor", "black")
-        self.window.overrideredirect(True)  # Sin bordes
+        self.window.overrideredirect(True)
         
         # Obtener tamaño de pantalla
         screen_width = self.window.winfo_screenwidth()
@@ -40,12 +42,12 @@ class PetOverlay:
         y = screen_height // 2 - self.size // 2
         self.window.geometry(f"{self.size}x{self.size}+{x}+{y}")
         
-        # Canvas transparente (fondo negro = transparente)
+        # Canvas transparente
         self.canvas = tk.Canvas(self.window, bg="black", 
                                highlightthickness=0, width=self.size, height=self.size)
         self.canvas.pack()
         
-        # Cargar sprite desde assets/sprites/
+        # Cargar sprite
         self.load_sprite()
         
         # Hacer arrastrable
@@ -57,10 +59,8 @@ class PetOverlay:
     
     def load_sprite(self, state="normal"):
         """Carga sprite según el estado emocional"""
-        # Limpiar canvas
         self.canvas.delete("all")
         
-        # Intentar cargar imagen desde assets/sprites/{state}.png
         sprite_path = os.path.join("assets", "sprites", f"{state}.png")
         
         if HAS_PIL and os.path.exists(sprite_path):
@@ -73,47 +73,49 @@ class PetOverlay:
                 )
                 return
             except Exception as e:
-                print(f"⚠️ Error cargando {sprite_path}: {e}")
+                print(f"Error cargando {sprite_path}: {e}")
         
-        # Sprite simple según estado
         self._draw_simple_sprite(state)
     
     def _draw_simple_sprite(self, state):
-        """Dibuja sprite simple (cuadrado con texto) según el estado"""
+        """Dibuja sprite simple según el estado - SIN EMOTICONOS"""
         center = self.size // 2
         
-        # Configuración por estado
         states_config = {
-            "normal": {"color": "#4CAF50", "text": "😊\nNORMAL", "text_color": "white"},
-            "hambriento": {"color": "#FF6B6B", "text": "😫\nHAMBRE", "text_color": "white"},
-            "muy_hambriento": {"color": "#D32F2F", "text": "😵\nMUERO DE\nHAMBRE", "text_color": "white"},
-            "gordo": {"color": "#FF9800", "text": "🤢\nGORDO", "text_color": "white"},
-            "sucio": {"color": "#8B4513", "text": "🤮\nSUCIO", "text_color": "white"},
-            "muy_sucio": {"color": "#5D4037", "text": "💩\nASQUEROSO", "text_color": "white"},
-            "cansado": {"color": "#9E9E9E", "text": "😴\nCANSADO", "text_color": "white"},
-            "agotado": {"color": "#616161", "text": "💤\nAGOTADO", "text_color": "white"},
-            "feliz": {"color": "#FFD700", "text": "😄\n¡FELIZ!", "text_color": "black"},
-            "muy_feliz": {"color": "#FFC107", "text": "🤩\n¡SÚPER\nFELIZ!", "text_color": "black"},
-            "triste": {"color": "#2196F3", "text": "😢\nTRISTE", "text_color": "white"},
-            "muy_triste": {"color": "#1565C0", "text": "😭\nMUY\nTRISTE", "text_color": "white"},
-            "durmiendo": {"color": "#7E57C2", "text": "😴\nZzz...", "text_color": "white"},
-            "enfermo": {"color": "#66BB6A", "text": "🤢\nENFERMO", "text_color": "white"},
-            "muriendo": {"color": "#424242", "text": "☠️\nMURIENDO", "text_color": "white"}
+            "normal": {"color": "#4CAF50", "text": "NORMAL", "text_color": "white"},
+            "hambriento": {"color": "#FF6B6B", "text": "HAMBRE", "text_color": "white"},
+            "muy_hambriento": {"color": "#D32F2F", "text": "MUERO\nHAMBRE", "text_color": "white"},
+            "gordo": {"color": "#FF9800", "text": "GORDO", "text_color": "white"},
+            "sucio": {"color": "#8B4513", "text": "SUCIO", "text_color": "white"},
+            "muy_sucio": {"color": "#5D4037", "text": "MUY\nSUCIO", "text_color": "white"},
+            "cansado": {"color": "#9E9E9E", "text": "CANSADO", "text_color": "white"},
+            "agotado": {"color": "#616161", "text": "AGOTADO", "text_color": "white"},
+            "feliz": {"color": "#FFD700", "text": "FELIZ", "text_color": "black"},
+            "muy_feliz": {"color": "#FFC107", "text": "SUPER\nFELIZ", "text_color": "black"},
+            "triste": {"color": "#2196F3", "text": "TRISTE", "text_color": "white"},
+            "muy_triste": {"color": "#1565C0", "text": "MUY\nTRISTE", "text_color": "white"},
+            "durmiendo": {"color": "#7E57C2", "text": "Zzz...", "text_color": "white"},
+            "enfermo": {"color": "#66BB6A", "text": "ENFERMO", "text_color": "white"},
+            "muriendo": {"color": "#424242", "text": "MURIENDO", "text_color": "white"},
+            # NUEVOS SPRITES DE MUERTE
+            "muerte_obesidad": {"color": "#FF6600", "text": "OBESO\nMUERTE", "text_color": "white"},
+            "muerte_tristeza": {"color": "#000080", "text": "SUICIDIO\nTRISTEZA", "text_color": "white"},
+            "muerte_sueno": {"color": "#404040", "text": "MUERTE\nAGOTAMIENTO", "text_color": "white"},
+            "muerte_hambre": {"color": "#8B0000", "text": "MUERTE\nHAMBRE", "text_color": "white"},
+            "muerte_higiene": {"color": "#3D2817", "text": "MUERTE\nENFERMEDAD", "text_color": "white"}
         }
         
         config = states_config.get(state, states_config["normal"])
         
-        # Cuadrado de fondo
         self.canvas.create_rectangle(
             10, 10, self.size-10, self.size-10,
             fill=config["color"], outline="white", width=4
         )
         
-        # Texto del estado
         self.canvas.create_text(
             center, center,
             text=config["text"],
-            font=("Arial", 16, "bold"),
+            font=("Arial", 14, "bold"),
             fill=config["text_color"],
             justify="center"
         )
@@ -126,106 +128,57 @@ class PetOverlay:
         self._drag_data = {"x": event.x, "y": event.y}
     
     def _drag(self, event):
-        """Arrastra la mascota por la pantalla"""
+        """Arrastra la mascota"""
         if hasattr(self, '_drag_data'):
             x = self.window.winfo_x() + event.x - self._drag_data["x"]
             y = self.window.winfo_y() + event.y - self._drag_data["y"]
             self.window.geometry(f"{self.size}x{self.size}+{x}+{y}")
     
     def move_to(self, x, y):
-        """Mueve la mascota a posición específica de LA PANTALLA"""
-        # Limitar a bordes de pantalla
+        """Mueve la mascota a posición específica"""
         x = max(0, min(x, self.screen_width - self.size))
         y = max(0, min(y, self.screen_height - self.size))
         self.window.geometry(f"{self.size}x{self.size}+{x}+{y}")
     
     def get_position(self):
-        """Obtiene posición actual en la pantalla"""
+        """Obtiene posición actual"""
         return self.window.winfo_x(), self.window.winfo_y()
     
-    def random_move(self):
-        """Mueve la mascota a una posición aleatoria de LA PANTALLA de forma gradual"""
+    def smooth_move(self):
+        """Mueve la mascota SUAVEMENTE a posición aleatoria"""
         target_x = random.randint(0, self.screen_width - self.size)
         target_y = random.randint(0, self.screen_height - self.size)
         self._animate_move_to(target_x, target_y)
     
     def _animate_move_to(self, target_x, target_y):
-        """Anima el movimiento gradual hacia una posición"""
+        """Anima el movimiento SUAVEMENTE usando interpolación"""
         current_x = self.window.winfo_x()
         current_y = self.window.winfo_y()
         
-        steps = 30  # Pasos de animación
-        dx = (target_x - current_x) / steps
-        dy = (target_y - current_y) / steps
+        steps = PET_MOVE_STEPS
         
-        for _ in range(steps):
-            current_x += dx
-            current_y += dy
-            self.window.geometry(f"{self.size}x{self.size}+{int(current_x)}+{int(current_y)}")
-            self.window.update()
-            time.sleep(0.03)  # Velocidad de movimiento
-
-class GameOverlay:
-    """Overlay para minijuegos y ruletas - SE SOBREPONE A TODO como la mascota"""
-    def __init__(self, parent_app):
-        self.app = parent_app
-        self.window = None
-        self.canvas = None
-    
-    def create(self):
-        """Crea overlay de juego"""
-        if self.window:
-            return self.canvas
+        def ease_in_out(t):
+            """Función de suavizado (ease-in-out)"""
+            return t * t * (3.0 - 2.0 * t)
         
-        self.window = tk.Toplevel()
-        self.window.title("")
-        
-        # Overlay transparente PERO menos que la mascota
-        self.window.attributes("-topmost", True)
-        self.window.attributes("-alpha", 0.98)  # Casi opaco
-        self.window.overrideredirect(True)  # Sin bordes
-        
-        # Pantalla completa centrada
-        screen_width = self.window.winfo_screenwidth()
-        screen_height = self.window.winfo_screenheight()
-        
-        width = 900
-        height = 700
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
-        
-        self.window.geometry(f"{width}x{height}+{x}+{y}")
-        
-        # Canvas oscuro
-        self.canvas = tk.Canvas(self.window, bg="#1a1a1a", highlightthickness=0)
-        self.canvas.pack(fill="both", expand=True)
-        
-        # Asegurar que la mascota siga estando encima
-        self.app.pet_overlay.window.lift()
-        
-        return self.canvas
-    
-    def destroy(self):
-        """Destruye overlay"""
-        if self.window:
-            try:
-                self.window.destroy()
-            except:
-                pass
-            self.window = None
-            self.canvas = None
+        for i in range(steps + 1):
+            t = i / steps
+            eased_t = ease_in_out(t)
             
-            # Asegurar que la mascota siga encima
-            self.app.pet_overlay.window.lift()
+            new_x = current_x + (target_x - current_x) * eased_t
+            new_y = current_y + (target_y - current_y) * eased_t
+            
+            self.window.geometry(f"{self.size}x{self.size}+{int(new_x)}+{int(new_y)}")
+            self.window.update()
+            time.sleep(PET_MOVE_DELAY)
 
-class CountdownPet:
+class MiniDiego:
     def __init__(self, root):
         self.root = root
-        self.root.title("CountdownPet - Panel de Control")
-        self.root.geometry("400x350")  # Más alto para el contador
+        self.root.title("Cuidame Rebollo Rebollito !")
+        self.root.geometry("450x400")
         self.root.configure(bg="#2d2d2d")
         
-        # ALWAYS ON TOP
         if ALWAYS_ON_TOP:
             self.root.attributes("-topmost", True)
         
@@ -233,7 +186,7 @@ class CountdownPet:
         self.root.protocol("WM_DELETE_WINDOW", lambda: None)
         
         # Estados
-        self.hambre = 50  # Empiezan en 50%
+        self.hambre = 50
         self.sueno = 50
         self.higiene = 50
         self.felicidad = 50
@@ -244,16 +197,15 @@ class CountdownPet:
         
         # Contador de 168 horas (7 días)
         self.game_start_time = time.time()
-        self.total_time = 168 * 3600  # 168 horas en segundos
-        self.pause_time_used = 0  # Tiempo de pausa usado hoy
-        self.pause_time_limit = 7 * 3600  # 7 horas de pausa al día
-        self.last_day_reset = time.time()  # Para resetear pausa diaria
+        self.total_time = 168 * 3600
+        self.pause_time_used = 0
+        self.pause_start_time = None
+        self.last_day_reset = time.time()
         
-        # Crear mascota flotante SOBRE TODO EL SISTEMA
+        # Crear mascota flotante
         self.pet_overlay = PetOverlay(self)
         
-        # Overlay para juegos (bajo la mascota pero sobre todo lo demás)
-        self.game_overlay = GameOverlay(self)
+        # Minigames
         self.current_game = None
         self.minigame_popup = None
         
@@ -265,26 +217,39 @@ class CountdownPet:
         threading.Thread(target=self._pet_movement_loop, daemon=True).start()
         threading.Thread(target=self._minigame_event_loop, daemon=True).start()
         threading.Thread(target=self._sleep_monitor_loop, daemon=True).start()
+        
+        # Sistema de guardado automático
+        self.load_game()
+        threading.Thread(target=self._autosave_loop, daemon=True).start()
     
     def create_control_panel(self):
-        """Panel de control con barras"""
+        """Panel de control"""
         # Título
-        title = tk.Label(self.root, text="🐾 COUNTDOWN PET 🐾",
-                        font=("Arial", 13, "bold"), bg="#2d2d2d", fg="white")
-        title.pack(pady=8)
+        title = tk.Label(self.root, text="Mini-Diego",
+                        font=("Arial", 16, "bold"), bg="#2d2d2d", fg="white")
+        title.pack(pady=10)
         
         # Contador de 168 horas
         self.time_frame = tk.Frame(self.root, bg="#1a1a1a", relief="sunken", bd=2)
         self.time_frame.pack(fill="x", padx=10, pady=5)
         
-        self.time_label = tk.Label(self.time_frame, text="⏱️ Tiempo: 168:00:00",
-                                   font=("Arial", 11, "bold"), bg="#1a1a1a", fg="#00FF00")
+        self.time_label = tk.Label(self.time_frame, text="Tiempo: 168:00:00",
+                                   font=("Arial", 12, "bold"), bg="#1a1a1a", fg="#00FF00")
         self.time_label.pack(side="left", padx=10, pady=5)
         
-        # Botón de pausa
-        self.pause_button = tk.Button(self.time_frame, text="⏸️ PAUSAR (7h/día)",
+        # Frame de pausa con INFO
+        # Frame de pausa con CRONO VISIBLE
+        # Frame de pausa con CRONO
+        pause_frame = tk.Frame(self.root, bg="#1a1a1a", relief="sunken", bd=2)
+        pause_frame.pack(fill="x", padx=10, pady=5)
+        
+        self.pause_time_label = tk.Label(pause_frame, text="Pausa: 07:00:00 disponibles",
+                                         font=("Arial", 11, "bold"), bg="#1a1a1a", fg="#00FF00")
+        self.pause_time_label.pack(side="left", padx=10, pady=5)
+        
+        self.pause_button = tk.Button(pause_frame, text="PAUSAR (7h)",
                                       command=self.toggle_pause,
-                                      font=("Arial", 9, "bold"), bg="#FFC107", fg="black",
+                                      font=("Arial", 10, "bold"), bg="#FFC107", fg="black",
                                       relief="raised", cursor="hand2")
         self.pause_button.pack(side="right", padx=10, pady=5)
         
@@ -292,13 +257,13 @@ class CountdownPet:
         stats_container = tk.Frame(self.root, bg="#2d2d2d")
         stats_container.pack(fill="both", expand=True, padx=10, pady=5)
         
-        # Crear cada estadística (incluyendo felicidad CON cuadradito)
+        # Crear estadísticas con botones NEGROS
         self.stat_widgets = {}
         stats = [
-            ("hambre", "🍔 Alimentar", "#FF6B6B", self.feed_pet),
-            ("sueno", "😴 Dormir", "#4ECDC4", self.toggle_sleep),
-            ("higiene", "🛁 Duchar", "#95E1D3", self.shower_pet),
-            ("felicidad", "💛 Felicidad", "#FFE66D", None)  # También con cuadradito
+            ("hambre", "Alimentar", "#FF6B6B", self.feed_pet),
+            ("sueno", "Dormir", "#4ECDC4", self.toggle_sleep),
+            ("higiene", "Duchar", "#95E1D3", self.shower_pet),
+            ("felicidad", "Felicidad", "#FFE66D", None)
         ]
         
         for stat_name, btn_text, color, command in stats:
@@ -309,48 +274,47 @@ class CountdownPet:
         sep.pack(fill="x", pady=8)
         
         # Botón admin
-        admin_btn = tk.Button(self.root, text="⚙️ Admin",
+        admin_btn = tk.Button(self.root, text="Admin",
                              command=self.open_admin,
-                             font=("Arial", 10, "bold"), bg="#FF5722", fg="white",
-                             relief="raised", cursor="hand2", pady=5)
+                             font=("Arial", 11, "bold"), bg="#000000", fg="white",
+                             relief="raised", cursor="hand2", pady=6)
         admin_btn.pack(fill="x", padx=10, pady=5)
         
         # Iniciar thread del contador
         threading.Thread(target=self._countdown_loop, daemon=True).start()
+        threading.Thread(target=self._pause_info_loop, daemon=True).start()
     
     def _create_stat_row(self, parent, stat_name, btn_text, color, command):
-        """Crea fila con botón/label a la izquierda y barras a la derecha en CUADRADITO"""
+        """Crea fila con botón NEGRO y barras"""
         row_frame = tk.Frame(parent, bg="#2d2d2d")
-        row_frame.pack(fill="x", pady=4)
+        row_frame.pack(fill="x", pady=5)
         
-        # Botón o label a la izquierda
+        # Botón o label NEGRO
         if command:
             btn = tk.Button(row_frame, text=btn_text,
                            command=command,
-                           font=("Arial", 9, "bold"), bg=color, fg="white",
-                           width=13, relief="raised", cursor="hand2")
-            btn.pack(side="left", padx=(0, 8))
+                           font=("Arial", 10, "bold"), bg="#000000", fg="white",
+                           width=12, relief="raised", cursor="hand2", pady=3)
+            btn.pack(side="left", padx=(0, 10))
             
-            # Guardar referencia al botón si es dormir
             if stat_name == "sueno":
                 self.sleep_button = btn
         else:
-            # Para felicidad, crear un cuadradito igual que los botones
             lbl = tk.Label(row_frame, text=btn_text,
-                          font=("Arial", 9, "bold"), bg=color, fg="white",
-                          width=13, anchor="center", relief="raised", bd=2)
-            lbl.pack(side="left", padx=(0, 8))
+                          font=("Arial", 10, "bold"), bg="#000000", fg="white",
+                          width=12, anchor="center", relief="raised", bd=2, pady=3)
+            lbl.pack(side="left", padx=(0, 10))
         
-        # Frame con borde para las barras (cuadradito)
+        # Barras en cuadradito
         bars_container = tk.Frame(row_frame, bg="#1a1a1a", relief="sunken", bd=2)
-        bars_container.pack(side="left")
+        bars_container.pack(side="left", fill="x", expand=True)
         
         bars_frame = tk.Frame(bars_container, bg="#1a1a1a")
-        bars_frame.pack(padx=2, pady=2)
+        bars_frame.pack(padx=3, pady=3)
         
         bars = []
         for i in range(10):
-            bar = tk.Label(bars_frame, text="█", font=("Arial", 11),
+            bar = tk.Label(bars_frame, text="█", font=("Arial", 12),
                           bg="#1a1a1a", fg="#333", padx=0)
             bar.pack(side="left", padx=1)
             bars.append(bar)
@@ -380,67 +344,119 @@ class CountdownPet:
                     else:
                         bar.config(fg="#333", bg="#1a1a1a")
         
-        # Actualizar sprite de la mascota según estado emocional
         self._update_pet_sprite()
-        
-        # Actualizar color del botón de dormir
         self._update_sleep_button_color()
     
     def _update_sleep_button_color(self):
-        """Actualiza el color del botón de dormir según el estado"""
+        """Actualiza color del botón de dormir"""
         if hasattr(self, 'sleep_button'):
             if self.sleeping:
-                self.sleep_button.config(bg="#9C27B0", text="☀️ Despertar")  # Morado cuando duerme
+                self.sleep_button.config(bg="#9C27B0", text="Despertar", fg="white")
             else:
-                self.sleep_button.config(bg="#4ECDC4", text="😴 Dormir")  # Cian normal
+                self.sleep_button.config(bg="#4ECDC4", text="Dormir", fg="white")
+        """Actualiza color del botón de dormir"""
+        if hasattr(self, 'sleep_button'):
+            if self.sleeping:
+                self.sleep_button.config(bg="#9C27B0", text="Despertar", fg="white")
+            else:
+                self.sleep_button.config(bg="#000000", text="Dormir", fg="white")
     
     def toggle_pause(self):
-        """Activa/desactiva la pausa del juego"""
+        """Activa/desactiva pausa - PAUSA EL CONTADOR DE 7 DÍAS"""
         if self.paused:
             # Reanudar
+            if self.pause_start_time:
+                elapsed_pause = time.time() - self.pause_start_time
+                self.pause_time_used += elapsed_pause
+                self.pause_start_time = None
+            
             self.paused = False
-            self.pause_button.config(text="⏸️ PAUSAR", bg="#FFC107")
+            self.pause_button.config(text="PAUSAR", bg="#FFC107")
         else:
-            # Verificar si tiene tiempo de pausa disponible
-            if self.pause_time_used >= self.pause_time_limit:
+            # Verificar tiempo disponible
+            remaining = PAUSE_TIME_LIMIT - self.pause_time_used
+            if remaining <= 0:
                 messagebox.showwarning("Pausa", 
-                    "⚠️ Ya usaste las 7 horas de pausa de hoy.\n"
+                    "Ya usaste las 7 horas de pausa de hoy.\n"
                     "Se resetea en 24 horas.")
                 return
             
             # Pausar
             self.paused = True
-            self.pause_button.config(text="▶️ REANUDAR", bg="#4CAF50")
+            self.pause_start_time = time.time()
+            self.pause_button.config(text="REANUDAR", bg="#4CAF50")
     
-    def _countdown_loop(self):
-        """Loop del contador de 168 horas"""
+    def _pause_info_loop(self):
+        """Actualiza crono de pausa - VERDE cuando activo"""
         while True:
             try:
                 if self.alive:
-                    # Calcular tiempo transcurrido
-                    elapsed = time.time() - self.game_start_time
-                    remaining = self.total_time - elapsed
-                    
-                    if remaining <= 0:
-                        # ¡Victoria! Completó las 168 horas
-                        self.root.after(0, self._game_won)
-                        break
-                    
-                    # Actualizar display
-                    hours = int(remaining // 3600)
-                    minutes = int((remaining % 3600) // 60)
-                    seconds = int(remaining % 60)
-                    
-                    time_str = f"⏱️ Tiempo: {hours:03d}:{minutes:02d}:{seconds:02d}"
-                    
-                    if self.paused:
-                        time_str += " [PAUSADO]"
-                        self.time_label.config(text=time_str, fg="#FFC107")
+                    if self.paused and self.pause_start_time:
+                        # PAUSADO: Mostrar tiempo RESTANTE en VERDE bajando
+                        used = self.pause_time_used + (time.time() - self.pause_start_time)
+                        remaining = PAUSE_TIME_LIMIT - used
+                        
+                        if remaining < 0:
+                            remaining = 0
+                        
+                        hours = int(remaining // 3600)
+                        minutes = int((remaining % 3600) // 60)
+                        seconds = int(remaining % 60)
+                        
+                        self.pause_time_label.config(
+                            text=f"PAUSADO: {hours:02d}:{minutes:02d}:{seconds:02d}",
+                            fg="#00FF00"  # VERDE
+                        )
                     else:
+                        # NO PAUSADO: Mostrar disponible
+                        avail = PAUSE_TIME_LIMIT - self.pause_time_used
+                        if avail < 0:
+                            avail = 0
+                        
+                        hours = int(avail // 3600)
+                        minutes = int((avail % 3600) // 60)
+                        
+                        self.pause_time_label.config(
+                            text=f"Pausa: {hours:02d}:{minutes:02d} disponibles",
+                            fg="#FFC107"  # AMARILLO
+                        )
+                
+                time.sleep(1)
+            except:
+                time.sleep(1)
+    
+    def _countdown_loop(self):
+        """Loop del contador - SE PAUSA cuando paused=True"""
+        while True:
+            try:
+                if self.alive:
+                    if not self.paused:
+                        # Contador de 7 días bajando normalmente
+                        # Calcular tiempo transcurrido
+                        elapsed = time.time() - self.game_start_time
+                        remaining = self.total_time - elapsed
+                        
+                        if remaining <= 0:
+                            self.root.after(0, self._game_won)
+                            break
+                        
+                        hours = int(remaining // 3600)
+                        minutes = int((remaining % 3600) // 60)
+                        seconds = int(remaining % 60)
+                        
+                        time_str = f"Tiempo: {hours:03d}:{minutes:02d}:{seconds:02d}"
                         self.time_label.config(text=time_str, fg="#00FF00")
+                    else:
+                        # Pausado - ajustar tiempo de inicio para compensar
+                        if self.pause_start_time:
+                            elapsed_pause = time.time() - self.pause_start_time
+                            self.game_start_time += elapsed_pause
+                            self.pause_start_time = time.time()
+                        
+                        self.time_label.config(fg="#FFC107")
                     
                     # Resetear pausa diaria
-                    if time.time() - self.last_day_reset >= 86400:  # 24 horas
+                    if time.time() - self.last_day_reset >= 86400:
                         self.pause_time_used = 0
                         self.last_day_reset = time.time()
                 
@@ -449,19 +465,14 @@ class CountdownPet:
                 time.sleep(1)
     
     def _game_won(self):
-        """El jugador ganó - completó las 168 horas"""
-        messagebox.showinfo("🎉 ¡VICTORIA! 🎉",
-            "¡Felicidades! Mantuviste viva a tu mascota durante 7 días.\n\n"
-            "🏆 ¡Has ganado!\n\n"
-            "Aquí recibirías tu recompensa de Steam.")
+        """Victoria - 168 horas completadas"""
         self.root.quit()
     
     def _get_emotional_state(self):
-        """Determina el estado emocional según las estadísticas"""
+        """Determina estado emocional"""
         if self.sleeping:
             return "durmiendo"
         
-        # Prioridad a estados críticos
         if self.hambre >= 90:
             return "gordo"
         elif self.hambre <= 10:
@@ -488,7 +499,6 @@ class CountdownPet:
         elif self.felicidad >= 60:
             return "feliz"
         
-        # Estado enfermo si múltiples stats bajas
         stats_bajas = sum([
             self.hambre < 40,
             self.sueno < 40,
@@ -504,7 +514,7 @@ class CountdownPet:
         return "normal"
     
     def _update_pet_sprite(self):
-        """Actualiza el sprite de la mascota"""
+        """Actualiza sprite de mascota"""
         state = self._get_emotional_state()
         self.pet_overlay.update_state(state)
     
@@ -512,8 +522,6 @@ class CountdownPet:
         """Cambia estadística"""
         if stat_name == 'hambre':
             self.hambre = max(0, min(100, self.hambre + amount))
-            if self.hambre > HUNGER_DEATH_MAX:
-                self.die("Sobrealimentación (>90%)")
         elif stat_name == 'sueno':
             self.sueno = max(0, min(100, self.sueno + amount))
         elif stat_name == 'higiene':
@@ -525,7 +533,7 @@ class CountdownPet:
         self._check_death()
     
     def _decay_loop(self):
-        """Desgaste de estadísticas"""
+        """Desgaste de estadísticas - NO afecta si paused"""
         while True:
             try:
                 if self.alive and not self.paused:
@@ -545,43 +553,45 @@ class CountdownPet:
                 time.sleep(5)
     
     def _pet_movement_loop(self):
-        """Mascota se mueve sola por LA PANTALLA"""
+        """Mascota se mueve SUAVEMENTE"""
         while True:
             try:
-                if self.alive and not self.sleeping and random.random() < 0.4:
-                    self.pet_overlay.random_move()
-                time.sleep(random.randint(5, 15))
+                if self.alive and not self.sleeping and not self.paused and random.random() < 0.4:
+                    self.pet_overlay.smooth_move()
+                time.sleep(random.randint(PET_MOVE_MIN_INTERVAL, PET_MOVE_MAX_INTERVAL))
             except:
                 time.sleep(5)
     
     def _sleep_monitor_loop(self):
-        """Monitorea el sueño y lo aumenta gradualmente"""
+        """Monitorea sueño - GANA POR MINUTO"""
         while True:
             try:
                 if self.sleeping and self.sleep_start_time:
                     elapsed = time.time() - self.sleep_start_time
                     hours = elapsed / 3600
                     
-                    # Aumentar sueño gradualmente (aproximadamente 14% por hora)
-                    # Para llegar a 100% en 7 horas
+                    # Ganar sueño CADA MINUTO
                     if self.sueno < 100:
-                        self.change_stat('sueno', 1)  # +1% cada verificación
+                        self.change_stat('sueno', 1.43)
+                    else:
+                        # Si ya está al 100%, pierde felicidad lentamente
+                        self.change_stat('felicidad', -0.5)  # -0.5% por minuto
                     
-                    # Después de 8 horas, empieza a perder felicidad
-                    if hours >= 8.0:
-                        overtime_minutes = (hours - 8.0) * 60
+                    # Después de 7 horas, penalización por sobredescanso
+                    if hours >= 7.0:
+                        overtime_minutes = (hours - 7.0) * 60
                         if overtime_minutes >= 6:
                             penalty = int(overtime_minutes / 6)
                             self.change_stat('felicidad', -penalty)
-                            self.sleep_start_time = time.time() - (8 * 3600)
+                            self.sleep_start_time = time.time() - (7 * 3600)
                 
-                time.sleep(360)  # Verificar cada 6 minutos
+                time.sleep(60)  # Verificar cada minuto
             except:
                 time.sleep(60)
     
     def _minigame_event_loop(self):
-        """Loop de minijuegos"""
-        next_event = time.time() + EVENT_INTERVAL_SECONDS
+        """Loop de minijuegos - INTERVALO ALEATORIO 1-2 HORAS"""
+        next_event = time.time() + random.randint(EVENT_INTERVAL_MIN, EVENT_INTERVAL_MAX)
         
         while True:
             try:
@@ -589,33 +599,35 @@ class CountdownPet:
                     now = time.time()
                     if now >= next_event:
                         self.root.after(0, self.show_minigame_popup)
-                        next_event = now + EVENT_INTERVAL_SECONDS
+                        next_event = now + random.randint(EVENT_INTERVAL_MIN, EVENT_INTERVAL_MAX)
                 time.sleep(1)
             except:
                 time.sleep(2)
     
     def show_minigame_popup(self):
-        """Popup de minijuego (ÚNICO CON X)"""
+        """Popup de minijuego - TIMEOUT 1 minuto = -25% felicidad"""
         if self.minigame_popup or self.current_game:
             return
         
         self.minigame_popup = tk.Toplevel(self.root)
-        self.minigame_popup.title("¡Minijuego!")
-        self.minigame_popup.geometry("350x180+500+300")
+        self.minigame_popup.title("Minijuego")
+        self.minigame_popup.geometry("380x200+500+300")
         self.minigame_popup.attributes("-topmost", True)
         self.minigame_popup.resizable(False, False)
         self.minigame_popup.protocol("WM_DELETE_WINDOW", self._popup_closed)
+        self.minigame_popup.configure(bg="#1a1a1a")
         
         response = {'value': None}
         
         tk.Label(self.minigame_popup,
-                text="🎮 ¡Tu mascota quiere jugar! 🎮",
-                font=("Arial", 14, "bold"),
-                fg="#2196F3").pack(pady=15)
+                text="Mini-Diego quiere jugar",
+                font=("Arial", 16, "bold"), bg="#1a1a1a",
+                fg="#2196F3").pack(pady=20)
         
         tk.Label(self.minigame_popup,
-                text="¿Aceptas?",
-                font=("Arial", 12)).pack(pady=10)
+                text="Aceptas?",
+                font=("Arial", 13), bg="#1a1a1a",
+                fg="white").pack(pady=10)
         
         def accept():
             response['value'] = True
@@ -627,16 +639,16 @@ class CountdownPet:
             self.minigame_popup.destroy()
             self.minigame_popup = None
         
-        btn_frame = tk.Frame(self.minigame_popup)
+        btn_frame = tk.Frame(self.minigame_popup, bg="#1a1a1a")
         btn_frame.pack(pady=15)
         
-        tk.Button(btn_frame, text="✓ Aceptar", command=accept,
-                 font=("Arial", 11, "bold"), bg="#4CAF50", fg="white",
-                 width=10, pady=5).pack(side="left", padx=10)
+        tk.Button(btn_frame, text="Aceptar", command=accept,
+                 font=("Arial", 12, "bold"), bg="#4CAF50", fg="white",
+                 width=11, pady=6).pack(side="left", padx=10)
         
-        tk.Button(btn_frame, text="✗ Rechazar", command=decline,
-                 font=("Arial", 11), bg="#f44336", fg="white",
-                 width=10, pady=5).pack(side="right", padx=10)
+        tk.Button(btn_frame, text="Rechazar", command=decline,
+                 font=("Arial", 12), bg="#f44336", fg="white",
+                 width=11, pady=6).pack(side="right", padx=10)
         
         def wait_response():
             start = time.time()
@@ -649,7 +661,7 @@ class CountdownPet:
                     self.minigame_popup = None
                 except:
                     pass
-                self.change_stat('felicidad', -20)
+                self.change_stat('felicidad', -HAPPINESS_PENALTY_SKIP_GAME)
                 return
             
             if response['value'] is False:
@@ -662,36 +674,32 @@ class CountdownPet:
         threading.Thread(target=wait_response, daemon=True).start()
     
     def _popup_closed(self):
-        """Cerró popup con X"""
+        """Cerró popup con X - PENALIZACIÓN"""
         try:
             self.minigame_popup.destroy()
             self.minigame_popup = None
         except:
             pass
-        self.change_stat('felicidad', -20)
+        self.change_stat('felicidad', -HAPPINESS_PENALTY_SKIP_GAME)
     
     def launch_minigame(self, specific_game=None):
-        """Lanza minijuego"""
+        """Lanza minijuego EN PRIMERA PANTALLA"""
         if self.current_game:
             return
-        
-        canvas = self.game_overlay.create()
         
         games = [MathQuiz, MemoryGame, StroopGame]
         game_class = specific_game if specific_game else random.choice(games)
         
         try:
-            self.current_game = game_class(canvas, self._minigame_callback)
+            self.current_game = game_class(self.root, self._minigame_callback)
             self.current_game.run()
         except Exception as e:
             print(f"Error: {e}")
             self.current_game = None
-            self.game_overlay.destroy()
     
     def _minigame_callback(self, result):
         """Callback de minijuego"""
         self.current_game = None
-        self.game_overlay.destroy()
         
         if result == 'won':
             self.open_good_roulette()
@@ -700,63 +708,149 @@ class CountdownPet:
             self.open_bad_roulette()
     
     def open_good_roulette(self):
-        """Ruleta buena"""
-        canvas = self.game_overlay.create()
+        """Ruleta buena - PREMIOS JUSTOS"""
         sectors = [
-            ("+10% felicidad", ('felicidad', 10)),
-            ("+25% felicidad", ('felicidad', 25)),
-            ("Restaura hambre", ('hambre', 15)),
-            ("Restaura higiene", ('higiene', 15)),
-            ("Restaura sueño", ('sueno', 10)),
-            ("Inmunidad 1h", ('immunity', 0))
+            ("+15% felicidad", ('felicidad', 15)),
+            ("+30% felicidad", ('felicidad', 30)),
+            ("+20% hambre", ('hambre', 20)),
+            ("+25% higiene", ('higiene', 25)),
+            ("+20% sueno", ('sueno', 20)),
+            ("+50% felicidad", ('felicidad', 50))
         ]
-        Roulette(canvas, sectors, self._roulette_callback, "🎉 RULETA PREMIO 🎉")
+        Roulette(self.root, sectors, self._roulette_callback, "RULETA PREMIO")
     
     def open_bad_roulette(self):
-        """Ruleta mala"""
-        canvas = self.game_overlay.create()
+        """Ruleta mala - MÁS JUSTA"""
         sectors = [
-            ("-15% felicidad", ('felicidad', -15)),
+            ("-10% felicidad", ('felicidad', -10)),
+            ("-20% felicidad", ('felicidad', -20)),
             ("-30% felicidad", ('felicidad', -30)),
-            ("-50% felicidad", ('felicidad', -50)),
-            ("Bloqueo comida", ('block', 0)),
-            ("Bloqueo higiene", ('block', 0)),
-            ("Bloqueo sueño", ('block', 0)),
-            ("💀 MUERTE", ('death', 0))
+            ("-15% hambre", ('hambre', -15)),
+            ("-15% higiene", ('higiene', -15)),
+            ("Bloqueo temporal", ('block', 0)),
+            ("-40% felicidad", ('felicidad', -40))
         ]
-        Roulette(canvas, sectors, self._roulette_callback, "💀 RULETA CASTIGO 💀")
+        Roulette(self.root, sectors, self._roulette_callback, "RULETA CASTIGO")
     
     def _roulette_callback(self, payload):
-        """Callback ruleta"""
+        """Callback ruleta con ANIMACIÓN"""
         action, value = payload
         
         if action in ['felicidad', 'hambre', 'higiene', 'sueno']:
-            self.change_stat(action, value)
+            # ANIMAR stat antes de cambiar
+            self._animate_stat_change(action, value)
+        elif action == 'block':
+            # BLOQUEO: Iluminar en ROJO
+            self._animate_block(action)
         elif action == 'death':
             self.die("Ruleta de mala suerte")
+    
+    def _animate_stat_change(self, stat_name, value):
+        """Anima cambio de stat - PARPADEO amarillo/blanco"""
+        if stat_name not in self.stat_widgets:
+            return
         
-        self.game_overlay.destroy()
+        bars = self.stat_widgets[stat_name]['bars']
+        original_color = self.stat_widgets[stat_name]['color']
+        
+        # Parpadear 3 veces
+        def flash(count):
+            if count > 0:
+                # Amarillo brillante
+                for bar in bars:
+                    try:
+                        bar.config(fg="#FFFF00")
+                    except:
+                        pass
+                
+                self.root.after(200, lambda: restore(count))
+            else:
+                # Aplicar cambio final
+                self.change_stat(stat_name, value)
+        
+        def restore(count):
+            # Blanco brillante
+            for bar in bars:
+                try:
+                    bar.config(fg="#FFFFFF")
+                except:
+                    pass
+            self.root.after(200, lambda: flash(count - 1))
+        
+        flash(3)
+    
+    def _animate_block(self, stat_name):
+        """Anima bloqueo - FONDO ROJO"""
+        # Seleccionar stat aleatorio para bloquear
+        import random
+        stats_to_block = ['hambre', 'higiene', 'sueno']
+        blocked = random.choice(stats_to_block)
+        
+        if blocked not in self.stat_widgets:
+            return
+        
+        bars = self.stat_widgets[blocked]['bars']
+        
+        # Iluminar en ROJO por 3 segundos
+        for bar in bars:
+            try:
+                bar.config(bg="#FF0000")
+            except:
+                pass
+        
+        # Restaurar después de 3 segundos
+        self.root.after(3000, lambda: self._restore_bar_color(blocked))
+    
+    def _restore_bar_color(self, stat_name):
+        """Restaura color normal de barras"""
+        if stat_name not in self.stat_widgets:
+            return
+        
+        bars = self.stat_widgets[stat_name]['bars']
+        for bar in bars:
+            try:
+                bar.config(bg="#1a1a1a")
+            except:
+                pass
     
     def _check_death(self):
-        """Verifica muerte"""
         if not self.alive:
             return
         
+        # PROTECCIÓN: No morir hambre/higiene durmiendo
+        if self.sleeping:
+            if self.sueno <= 0:
+                self.pet_overlay.update_state("muerte_sueno")
+                self.die("Agotamiento")
+            elif self.felicidad <= 0:
+                self.pet_overlay.update_state("muerte_tristeza")
+                self.die("Tristeza extrema")
+            return
+        
+        """Verifica muerte con SPRITES ESPECÍFICOS"""
+        
+        # Verificar todas las muertes SI NO DUERME
         if self.hambre <= HUNGER_DEATH_MIN:
-            self.die("Hambre (0%)")
+            self.pet_overlay.update_state("muerte_hambre")
+            self.die("Hambre")
         elif self.hambre > HUNGER_DEATH_MAX:
-            self.die("Sobrealimentación (>90%)")
+            self.pet_overlay.update_state("muerte_obesidad")
+            self.die("Obesidad")
         elif self.sueno <= 0:
+            self.pet_overlay.update_state("muerte_sueno")
             self.die("Agotamiento")
         elif self.higiene <= 0:
-            self.die("Falta de higiene")
+            self.pet_overlay.update_state("muerte_higiene")
+            self.die("Enfermedad por falta de higiene")
         elif self.felicidad <= 0:
-            self.die("Tristeza - Suicidio")
+            self.pet_overlay.update_state("muerte_tristeza")
+            self.die("Tristeza extrema")
     
     def die(self, cause):
-        """Muerte"""
+        """Muerte con MENSAJE ALEATORIO (14 mensajes)"""
         self.alive = False
-        messagebox.showerror("GAME OVER", f"💀 Mascota muerta 💀\n\nCausa: {cause}")
+        message = random.choice(DEATH_MESSAGES)
+        messagebox.showerror("GAME OVER", f"Mini-Diego ha muerto.\n\nCausa: {cause}\n\n{message}")
         self.root.quit()
     
     def feed_pet(self):
@@ -777,29 +871,15 @@ class CountdownPet:
             return
         
         if self.sleeping:
-            # Despertar
             elapsed = time.time() - self.sleep_start_time
             hours = elapsed / 3600
-            
-            messagebox.showinfo("Despertar", 
-                f"⏰ Durmió {hours:.1f} horas\n"
-                f"💤 Sueño actual: {self.sueno}%\n\n"
-                f"{'✅ Buen descanso' if 6 <= hours <= 8 else '⚠️ Tiempo no óptimo'}")
             
             self.sleeping = False
             self.sleep_start_time = None
         else:
-            # Dormir
             self.sleeping = True
             self.sleep_start_time = time.time()
-            messagebox.showinfo("Dormir", 
-                "💤 La mascota está durmiendo...\n\n"
-                "⏰ El sueño aumentará gradualmente\n"
-                "⏰ Óptimo: 7-8 horas\n"
-                "⚠️ >8h = Pierde felicidad\n\n"
-                "Usa el botón 'Despertar' para levantarla")
-        
-        self._update_sleep_button_color()
+            self._update_sleep_button_color()
     
     def open_admin(self):
         """Panel admin"""
@@ -811,25 +891,39 @@ class CountdownPet:
         
         admin_win = tk.Toplevel(self.root)
         admin_win.title("Panel Admin")
-        admin_win.geometry("300x350")
+        admin_win.geometry("320x380")
         admin_win.attributes("-topmost", True)
+        admin_win.configure(bg="#1a1a1a")
         
-        tk.Label(admin_win, text="🔧 ADMIN 🔧",
-                font=("Arial", 14, "bold")).pack(pady=10)
+        
+        tk.Label(admin_win, text="ADMIN",
+                font=("Arial", 16, "bold"), bg="#1a1a1a", fg="white").pack(pady=15)
         
         tk.Label(admin_win, text="Forzar minijuego:",
-                font=("Arial", 10, "bold")).pack(pady=5)
+                font=("Arial", 11, "bold"), bg="#1a1a1a", fg="white").pack(pady=8)
         
-        tk.Button(admin_win, text="📚 Quiz", command=lambda: self.launch_minigame(MathQuiz), width=20).pack(pady=3)
-        tk.Button(admin_win, text="🧠 Memoria", command=lambda: self.launch_minigame(MemoryGame), width=20).pack(pady=3)
-        tk.Button(admin_win, text="⚡ Stroop", command=lambda: self.launch_minigame(StroopGame), width=20).pack(pady=3)
+        tk.Button(admin_win, text="Quiz", command=lambda: self.launch_minigame(MathQuiz), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=4)
+        tk.Button(admin_win, text="Memoria", command=lambda: self.launch_minigame(MemoryGame), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=4)
+        tk.Button(admin_win, text="Stroop", command=lambda: self.launch_minigame(StroopGame), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=4)
         
-        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=10)
+        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=5)
         
-        tk.Button(admin_win, text="💚 Restaurar 100%", command=self.restore_stats, width=20, bg="#4CAF50", fg="white").pack(pady=5)
-        tk.Button(admin_win, text="☀️ Despertar", command=lambda: setattr(self, 'sleeping', False), width=20, bg="#FF9800", fg="white").pack(pady=5)
-        tk.Button(admin_win, text="❌ SALIR", command=self.root.quit, width=20, bg="#f44336", fg="white").pack(pady=5)
-    
+        tk.Button(admin_win, text="FORZAR MINIJUEGO AHORA", 
+                 command=self.show_minigame_popup,
+                 width=22, bg="#FF9800", fg="white", 
+                 font=("Arial", 10, "bold")).pack(pady=8)
+        
+        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=12)
+        
+        tk.Button(admin_win, text="Restaurar 100%", command=self.restore_stats, 
+                 width=22, bg="#4CAF50", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
+        tk.Button(admin_win, text="Despertar", command=lambda: setattr(self, 'sleeping', False), 
+                 width=22, bg="#FF9800", fg="white", font=("Arial", 10)).pack(pady=6)
+        tk.Button(admin_win, text="SALIR", command=self.root.quit, 
+                 width=22, bg="#f44336", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
     def restore_stats(self):
         """Restaurar stats"""
         self.hambre = 100
@@ -837,22 +931,67 @@ class CountdownPet:
         self.higiene = 100
         self.felicidad = 100
         self.update_display()
-        messagebox.showinfo("Admin", "Stats al 100%")
+    def save_game(self):
+        """Guarda progreso"""
+        data = {
+            'hambre': self.hambre,
+            'sueno': self.sueno,
+            'higiene': self.higiene,
+            'felicidad': self.felicidad,
+            'game_start_time': self.game_start_time,
+            'pause_time_used': self.pause_time_used,
+            'sleeping': self.sleeping,
+            'sleep_start_time': self.sleep_start_time
+        }
+        try:
+            with open('save.json', 'w') as f:
+                json.dump(data, f)
+        except:
+            pass
+    
+    def load_game(self):
+        """Carga progreso"""
+        try:
+            if os.path.exists('save.json'):
+                with open('save.json', 'r') as f:
+                    data = json.load(f)
+                self.hambre = data.get('hambre', 50)
+                self.sueno = data.get('sueno', 50)
+                self.higiene = data.get('higiene', 50)
+                self.felicidad = data.get('felicidad', 50)
+                self.game_start_time = data.get('game_start_time', time.time())
+                self.pause_time_used = data.get('pause_time_used', 0)
+                self.sleeping = data.get('sleeping', False)
+                self.sleep_start_time = data.get('sleep_start_time', None)
+        except:
+            pass
+    
+    def _autosave_loop(self):
+        """Guarda cada minuto"""
+        while True:
+            try:
+                if self.alive:
+                    self.save_game()
+                time.sleep(60)
+            except:
+                time.sleep(60)
+    
 
 def main():
     root = tk.Tk()
-    app = CountdownPet(root)
+    app = MiniDiego(root)
     app.update_display()
     
     print("\n" + "="*60)
-    print("🐾 COUNTDOWN PET INICIADO")
+    print("Mini-Diego INICIADO")
     print("="*60)
-    print("✅ Panel de control: Visible")
-    print("✅ Mascota flotante: SOBRE TODA LA PANTALLA")
-    print("📁 Sprite: assets/sprites/pet.png")
+    print("Panel de control: Visible")
+    print("Mascota flotante: SOBRE TODA LA PANTALLA")
+    print("Sprite: assets/sprites/")
     print("="*60 + "\n")
     
     root.mainloop()
 
+# Ejecutar con: dar_a_luz.py
 if __name__ == "__main__":
     main()
