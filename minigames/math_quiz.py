@@ -2,60 +2,54 @@ import tkinter as tk
 import random
 import json
 import os
-import time
 
 class MathQuiz:
+    """Quiz Matemtico - Versin mejorada"""
     def __init__(self, parent_window, callback):
-        """Minijuego de matemáticas con TIMER de 6 segundos"""
         self.callback = callback
         self.questions = self.load_questions()
         self.selected = random.sample(self.questions, min(10, len(self.questions)))
         self.current_index = 0
         self.correct_count = 0
         self.game_closed = False
+        self.answer_given = False
         
-        # Crear ventana INDEPENDIENTE
+        # Ventana flotante sin bordes
         self.window = tk.Toplevel()
-        self.window.title("Quiz Matematico")
-        
-        # CRÍTICO: SIEMPRE en frente
+        self.window.title("")
+        self.window.overrideredirect(True)
         self.window.attributes("-topmost", True)
-        self.window.focus_force()
-        self.window.grab_set()
-        
-        # Tamaño y posición centrada
-        screen_width = self.window.winfo_screenwidth()
-        screen_height = self.window.winfo_screenheight()
-        
-        width = 900
-        height = 700
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
-        
-        self.window.geometry(f"{width}x{height}+{x}+{y}")
         self.window.configure(bg="#1a1a1a")
         
         # Canvas
-        self.canvas = tk.Canvas(self.window, bg="#1a1a1a", 
-                               highlightthickness=0, width=width, height=height)
+        self.canvas = tk.Canvas(self.window, bg="#1a1a1a", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         
-        # GEOMETRÍA después de pack
+        # Geometra
         w, h = 700, 500
-        self.window.geometry(f"{w}x{h}")
         self.window.update_idletasks()
-        self.window.update()
         
-        # CENTRAR después de todo
         screen_w = self.window.winfo_screenwidth()
         screen_h = self.window.winfo_screenheight()
         x = (screen_w - w) // 2
         y = (screen_h - h) // 2
-        self.window.geometry(f"+{x}+{y}")
+        
+        self.window.geometry(f"{w}x{h}+{x}+{y}")
+        
+        # Arrastrable
+        self.canvas.bind("<Button-1>", self._start_drag)
+        self.canvas.bind("<B1-Motion>", self._drag)
         
         self.widgets = []
-        self.timer_running = False
-        self.answer_given = False
+    
+    def _start_drag(self, event):
+        self._drag_data = {"x": event.x, "y": event.y}
+    
+    def _drag(self, event):
+        if hasattr(self, '_drag_data'):
+            x = self.window.winfo_x() + event.x - self._drag_data["x"]
+            y = self.window.winfo_y() + event.y - self._drag_data["y"]
+            self.window.geometry(f"+{x}+{y}")
     
     def load_questions(self):
         """Carga preguntas del JSON"""
@@ -72,11 +66,53 @@ class MathQuiz:
             ]
     
     def run(self):
-        """Inicia el juego"""
-        self._show_next_question()
+        """Inicia el juego con instrucciones"""
+        self.window.after(100, self._show_instructions)
+    
+    def _show_instructions(self):
+        """Pantalla de instrucciones mejorada"""
+        self._clear_widgets()
+        
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        cx, cy = w // 2, h // 2
+        
+        # Ttulo
+        self.widgets.append(self.canvas.create_text(
+            cx, cy - 160,
+            text="QUIZ MATEMATICO",
+            font=("Arial", 28, "bold"),
+            fill="white"))
+        
+        # Instrucciones centradas
+        inst_text = """10 preguntas matematicas
+6 segundos por pregunta
+Necesitas 5 correctas para ganar"""
+        
+        self.widgets.append(self.canvas.create_text(
+            cx, cy - 30,
+            text=inst_text,
+            font=("Arial", 13),
+            fill="yellow",
+            justify="center"))
+        
+        # Botn comenzar
+        btn_rect = self.canvas.create_rectangle(
+            cx - 100, cy + 120, cx + 100, cy + 170,
+            fill="#4CAF50", outline="white", width=3)
+        self.widgets.append(btn_rect)
+        
+        btn_text = self.canvas.create_text(
+            cx, cy + 145,
+            text="COMENZAR",
+            font=("Arial", 16, "bold"),
+            fill="white")
+        self.widgets.append(btn_text)
+        
+        self.canvas.tag_bind(btn_rect, "<Button-1>", lambda e: self._show_next_question())
+        self.canvas.tag_bind(btn_text, "<Button-1>", lambda e: self._show_next_question())
     
     def _show_next_question(self):
-        """Muestra la siguiente pregunta con TIMER"""
+        """Muestra la siguiente pregunta con diseo mejorado"""
         if self.game_closed or self.current_index >= len(self.selected):
             self._finish_game()
             return
@@ -84,66 +120,60 @@ class MathQuiz:
         self._clear_widgets()
         self.answer_given = False
         
-        canvas_width = self.canvas.winfo_width()
-        canvas_height = self.canvas.winfo_height()
-        center_x = canvas_width // 2
-        center_y = canvas_height // 2
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        cx, cy = w // 2, h // 2
         
         question_data = self.selected[self.current_index]
         
-        # Contador
-        counter = self.canvas.create_text(
-            center_x, 60,
-            text=f"Quiz Matematico - Pregunta {self.current_index + 1}/{len(self.selected)}",
-            font=("Arial", 18, "bold"),
-            fill="white"
-        )
-        self.widgets.append(counter)
-        
-        # TIMER - 6 segundos
-        self.timer_label = self.canvas.create_text(
-            center_x, 110,
-            text="Tiempo: 6s",
+        # Contador de preguntas
+        counter_text = f"Pregunta {self.current_index + 1} de {len(self.selected)}"
+        self.widgets.append(self.canvas.create_text(
+            cx, 40,
+            text=counter_text,
             font=("Arial", 16, "bold"),
-            fill="#FFD700"
-        )
+            fill="white"))
+        
+        # Timer visual
+        self.timer_label = self.canvas.create_text(
+            cx, 80,
+            text=" 6s",
+            font=("Arial", 18, "bold"),
+            fill="#FFD700")
         self.widgets.append(self.timer_label)
         
-        # Pregunta
-        question_text = self.canvas.create_text(
-            center_x, center_y - 100,
+        # Pregunta grande y destacada
+        self.widgets.append(self.canvas.create_text(
+            cx, cy - 80,
             text=question_data["question"],
-            font=("Arial", 32, "bold"),
-            fill="#2196F3"
-        )
-        self.widgets.append(question_text)
+            font=("Arial", 42, "bold"),
+            fill="#2196F3"))
         
-        # Opciones
+        # Opciones en grid 2x2
         options = question_data["options"]
         positions = [
-            (center_x - 140, center_y + 40),
-            (center_x + 140, center_y + 40),
-            (center_x - 140, center_y + 130),
-            (center_x + 140, center_y + 130)
+            (cx - 140, cy + 50),
+            (cx + 140, cy + 50),
+            (cx - 140, cy + 140),
+            (cx + 140, cy + 140)
         ]
         
-        for opt, pos in zip(options, positions):
+        colors = ["#FF6B6B", "#4ECDC4", "#FFE66D", "#A8E6CF"]
+        
+        for i, (opt, pos) in enumerate(zip(options, positions)):
             is_correct = (opt == question_data["answer"])
             
             btn_rect = self.canvas.create_rectangle(
-                pos[0] - 90, pos[1] - 30,
-                pos[0] + 90, pos[1] + 30,
-                fill="#4CAF50",
-                outline="white", width=3
-            )
+                pos[0] - 100, pos[1] - 35,
+                pos[0] + 100, pos[1] + 35,
+                fill=colors[i],
+                outline="white", width=3)
             self.widgets.append(btn_rect)
             
             btn_text = self.canvas.create_text(
                 pos[0], pos[1],
                 text=opt,
-                font=("Arial", 18, "bold"),
-                fill="white"
-            )
+                font=("Arial", 22, "bold"),
+                fill="white")
             self.widgets.append(btn_text)
             
             self.canvas.tag_bind(btn_rect, "<Button-1>",
@@ -155,21 +185,30 @@ class MathQuiz:
         self._start_timer(6.0)
     
     def _start_timer(self, time_left):
-        """Inicia el countdown de 6 segundos"""
+        """Timer con iconos visuales"""
         if self.game_closed or self.answer_given:
             return
         
         if time_left <= 0:
-            # Tiempo agotado - contar como incorrecto
             self.answer_given = True
             self.current_index += 1
             self.canvas.after(500, self._show_next_question)
             return
         
         try:
+            if time_left > 3:
+                icon = ""
+                color = "#FFD700"
+            elif time_left > 1:
+                icon = ""
+                color = "#FF9800"
+            else:
+                icon = ""
+                color = "#FF0000"
+            
             self.canvas.itemconfig(self.timer_label, 
-                                 text=f"Tiempo: {int(time_left)}s",
-                                 fill="#FFD700" if time_left > 3 else "#FF0000")
+                                 text=f"{icon} {int(time_left)}s",
+                                 fill=color)
         except:
             pass
         
@@ -189,59 +228,65 @@ class MathQuiz:
         self.canvas.after(200, self._show_next_question)
     
     def _finish_game(self):
-        """Finaliza el juego"""
+        """Pantalla de resultados mejorada"""
         if self.game_closed:
             return
         
         self._clear_widgets()
         
-        canvas_width = self.canvas.winfo_width()
-        canvas_height = self.canvas.winfo_height()
-        center_x = canvas_width // 2
-        center_y = canvas_height // 2
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        cx, cy = w // 2, h // 2
         
         won = self.correct_count >= 5
         
-        # Resultado
+        # Emoji segn resultado
+        emoji = "" if won else ""
+        result_text = "VICTORIA!" if won else "Derrota"
+        result_color = "#4CAF50" if won else "#f44336"
+        
+        # Resultado con emoji
+        self.widgets.append(self.canvas.create_text(
+            cx, cy - 100,
+            text=f"{emoji} {result_text} {emoji}",
+            font=("Arial", 36, "bold"),
+            fill=result_color))
+        
+        # Estadsticas
+        percentage = int((self.correct_count / len(self.selected)) * 100)
+        stats_text = f"Aciertos: {self.correct_count} / {len(self.selected)}\n({percentage}%)"
+        
+        self.widgets.append(self.canvas.create_text(
+            cx, cy - 10,
+            text=stats_text,
+            font=("Arial", 18),
+            fill="white",
+            justify="center"))
+        
+        # Mensaje motivacional
         if won:
-            result = self.canvas.create_text(
-                center_x, center_y - 100,
-                text="VICTORIA",
-                font=("Arial", 40, "bold"),
-                fill="#4CAF50"
-            )
+            msg = "Excelente trabajo"
+        elif self.correct_count >= 3:
+            msg = "Casi lo logras"
         else:
-            result = self.canvas.create_text(
-                center_x, center_y - 100,
-                text="Derrota",
-                font=("Arial", 40, "bold"),
-                fill="#f44336"
-            )
-        self.widgets.append(result)
+            msg = "Sigue practicando"
         
-        # Puntuación
-        score = self.canvas.create_text(
-            center_x, center_y - 30,
-            text=f"Aciertos: {self.correct_count} / {len(self.selected)}",
-            font=("Arial", 20),
-            fill="white"
-        )
-        self.widgets.append(score)
+        self.widgets.append(self.canvas.create_text(
+            cx, cy + 40,
+            text=msg,
+            font=("Arial", 14),
+            fill="#FFD700"))
         
-        # Botón continuar
+        # Botn continuar
         btn_rect = self.canvas.create_rectangle(
-            center_x - 100, center_y + 70,
-            center_x + 100, center_y + 130,
-            fill="#2196F3", outline="white", width=3
-        )
+            cx - 100, cy + 100, cx + 100, cy + 150,
+            fill="#2196F3", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(
-            center_x, center_y + 100,
+            cx, cy + 125,
             text="CONTINUAR",
             font=("Arial", 16, "bold"),
-            fill="white"
-        )
+            fill="white")
         self.widgets.append(btn_text)
         
         self.canvas.tag_bind(btn_rect, "<Button-1>",

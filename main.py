@@ -11,6 +11,9 @@ from modules.roulette import Roulette
 from minigames.math_quiz import MathQuiz
 from minigames.memory_game import MemoryGame
 from minigames.stroop_game import StroopGame
+from minigames.snake_game import SnakeGame
+from minigames.tetris_game import TetrisGame
+from minigames.click_rapido import ClickRapido
 try:
     from PIL import Image, ImageTk
     HAS_PIL = True
@@ -217,10 +220,6 @@ class MiniDiego:
         threading.Thread(target=self._pet_movement_loop, daemon=True).start()
         threading.Thread(target=self._minigame_event_loop, daemon=True).start()
         threading.Thread(target=self._sleep_monitor_loop, daemon=True).start()
-        
-        # Sistema de guardado automático
-        self.load_game()
-        threading.Thread(target=self._autosave_loop, daemon=True).start()
     
     def create_control_panel(self):
         """Panel de control"""
@@ -237,14 +236,12 @@ class MiniDiego:
                                    font=("Arial", 12, "bold"), bg="#1a1a1a", fg="#00FF00")
         self.time_label.pack(side="left", padx=10, pady=5)
         
-        # Frame de pausa con INFO
         # Frame de pausa con CRONO VISIBLE
-        # Frame de pausa con CRONO
         pause_frame = tk.Frame(self.root, bg="#1a1a1a", relief="sunken", bd=2)
         pause_frame.pack(fill="x", padx=10, pady=5)
         
-        self.pause_time_label = tk.Label(pause_frame, text="Pausa: 07:00:00 disponibles",
-                                         font=("Arial", 11, "bold"), bg="#1a1a1a", fg="#00FF00")
+        self.pause_time_label = tk.Label(pause_frame, text="Pausa disponible: 07:00:00",
+                                         font=("Arial", 12, "bold"), bg="#1a1a1a", fg="#00FF00")
         self.pause_time_label.pack(side="left", padx=10, pady=5)
         
         self.pause_button = tk.Button(pause_frame, text="PAUSAR (7h)",
@@ -353,16 +350,10 @@ class MiniDiego:
             if self.sleeping:
                 self.sleep_button.config(bg="#9C27B0", text="Despertar", fg="white")
             else:
-                self.sleep_button.config(bg="#4ECDC4", text="Dormir", fg="white")
-        """Actualiza color del botón de dormir"""
-        if hasattr(self, 'sleep_button'):
-            if self.sleeping:
-                self.sleep_button.config(bg="#9C27B0", text="Despertar", fg="white")
-            else:
                 self.sleep_button.config(bg="#000000", text="Dormir", fg="white")
     
     def toggle_pause(self):
-        """Activa/desactiva pausa - PAUSA EL CONTADOR DE 7 DÍAS"""
+        """Activa/desactiva pausa - El tiempo baja automáticamente"""
         if self.paused:
             # Reanudar
             if self.pause_start_time:
@@ -371,13 +362,13 @@ class MiniDiego:
                 self.pause_start_time = None
             
             self.paused = False
-            self.pause_button.config(text="PAUSAR", bg="#FFC107")
+            self.pause_button.config(text="PAUSAR (7h)", bg="#FFC107")
         else:
             # Verificar tiempo disponible
             remaining = PAUSE_TIME_LIMIT - self.pause_time_used
             if remaining <= 0:
-                messagebox.showwarning("Pausa", 
-                    "Ya usaste las 7 horas de pausa de hoy.\n"
+                messagebox.showinfo("Pausa agotada", 
+                    "Has usado todas las 7 horas de pausa de hoy.\n"
                     "Se resetea en 24 horas.")
                 return
             
@@ -387,25 +378,47 @@ class MiniDiego:
             self.pause_button.config(text="REANUDAR", bg="#4CAF50")
     
     def _pause_info_loop(self):
-        """Actualiza crono de pausa - VERDE cuando activo"""
+        """Actualiza crono de pausa - BAJA VISUALMENTE"""
         while True:
             try:
                 if self.alive:
                     if self.paused and self.pause_start_time:
-                        # PAUSADO: Mostrar tiempo RESTANTE en VERDE bajando
+                        # PAUSADO: Tiempo bajando en GRANDE
                         used = self.pause_time_used + (time.time() - self.pause_start_time)
                         remaining = PAUSE_TIME_LIMIT - used
                         
-                        if remaining < 0:
+                        if remaining <= 0:
+                            # Se acabó el tiempo de pausa - reanudar automáticamente
                             remaining = 0
+                            self.pause_time_used = PAUSE_TIME_LIMIT
+                            self.pause_start_time = None
+                            self.paused = False
+                            self.pause_button.config(text="PAUSAR (agotado)", bg="#666666", state="disabled")
+                            self.pause_time_label.config(
+                                text="Pausa agotada - Se resetea en 24h",
+                                fg="#FF0000"
+                            )
+                            time.sleep(1)
+                            continue
                         
                         hours = int(remaining // 3600)
                         minutes = int((remaining % 3600) // 60)
                         seconds = int(remaining % 60)
                         
+                        # Cambiar color según tiempo restante
+                        if remaining > 3600:  # >1h
+                            color = "#00FF00"
+                            status = "PAUSADO"
+                        elif remaining > 600:  # >10min
+                            color = "#FFD700"
+                            status = "PAUSADO"
+                        else:  # <10min
+                            color = "#FF0000"
+                            status = "PAUSADO - POCO TIEMPO"
+                        
                         self.pause_time_label.config(
-                            text=f"PAUSADO: {hours:02d}:{minutes:02d}:{seconds:02d}",
-                            fg="#00FF00"  # VERDE
+                            text=f"{status}: {hours:02d}:{minutes:02d}:{seconds:02d}",
+                            fg=color
                         )
                     else:
                         # NO PAUSADO: Mostrar disponible
@@ -415,11 +428,20 @@ class MiniDiego:
                         
                         hours = int(avail // 3600)
                         minutes = int((avail % 3600) // 60)
+                        seconds = int(avail % 60)
                         
-                        self.pause_time_label.config(
-                            text=f"Pausa: {hours:02d}:{minutes:02d} disponibles",
-                            fg="#FFC107"  # AMARILLO
-                        )
+                        if avail > 0:
+                            self.pause_time_label.config(
+                                text=f"Pausa disponible: {hours:02d}:{minutes:02d}:{seconds:02d}",
+                                fg="#00FF00"
+                            )
+                            self.pause_button.config(state="normal", bg="#FFC107")
+                        else:
+                            self.pause_time_label.config(
+                                text="Pausa agotada - Se resetea en 24h",
+                                fg="#FF0000"
+                            )
+                            self.pause_button.config(state="disabled", bg="#666666")
                 
                 time.sleep(1)
             except:
@@ -687,7 +709,7 @@ class MiniDiego:
         if self.current_game:
             return
         
-        games = [MathQuiz, MemoryGame, StroopGame]
+        games = [MathQuiz, MemoryGame, StroopGame, SnakeGame, TetrisGame, ClickRapido]
         game_class = specific_game if specific_game else random.choice(games)
         
         try:
@@ -702,6 +724,7 @@ class MiniDiego:
         self.current_game = None
         
         if result == 'won':
+            self.change_stat('felicidad', 15)  # +15% felicidad por ganar
             self.open_good_roulette()
         elif result == 'lost':
             self.change_stat('felicidad', -10)
@@ -720,15 +743,15 @@ class MiniDiego:
         Roulette(self.root, sectors, self._roulette_callback, "RULETA PREMIO")
     
     def open_bad_roulette(self):
-        """Ruleta mala - MÁS JUSTA"""
+        """Ruleta mala - CASTIGOS MEJORADOS"""
         sectors = [
-            ("-10% felicidad", ('felicidad', -10)),
-            ("-20% felicidad", ('felicidad', -20)),
+            ("-15% felicidad", ('felicidad', -15)),
+            ("-25% felicidad", ('felicidad', -25)),
+            ("-20% hambre", ('hambre', -20)),
+            ("-20% higiene", ('higiene', -20)),
+            ("-20% sueno", ('sueno', -20)),
             ("-30% felicidad", ('felicidad', -30)),
-            ("-15% hambre", ('hambre', -15)),
-            ("-15% higiene", ('higiene', -15)),
-            ("Bloqueo temporal", ('block', 0)),
-            ("-40% felicidad", ('felicidad', -40))
+            ("-10% todas las stats", ('all', -10))
         ]
         Roulette(self.root, sectors, self._roulette_callback, "RULETA CASTIGO")
     
@@ -736,7 +759,13 @@ class MiniDiego:
         """Callback ruleta con ANIMACIÓN"""
         action, value = payload
         
-        if action in ['felicidad', 'hambre', 'higiene', 'sueno']:
+        if action == 'all':
+            # Aplicar a todas las stats
+            self._animate_stat_change('hambre', value)
+            self.canvas.after(300, lambda: self._animate_stat_change('sueno', value))
+            self.canvas.after(600, lambda: self._animate_stat_change('higiene', value))
+            self.canvas.after(900, lambda: self._animate_stat_change('felicidad', value))
+        elif action in ['felicidad', 'hambre', 'higiene', 'sueno']:
             # ANIMAR stat antes de cambiar
             self._animate_stat_change(action, value)
         elif action == 'block':
@@ -866,17 +895,17 @@ class MiniDiego:
         self.change_stat('higiene', SHOWER_INCREASE)
     
     def toggle_sleep(self):
-        """Dormir ON/OFF"""
+        """Dormir ON/OFF - Funciona cuando quieras"""
         if not self.alive:
             return
         
         if self.sleeping:
-            elapsed = time.time() - self.sleep_start_time
-            hours = elapsed / 3600
-            
+            # Despertar
             self.sleeping = False
             self.sleep_start_time = None
+            self._update_sleep_button_color()
         else:
+            # Dormir
             self.sleeping = True
             self.sleep_start_time = time.time()
             self._update_sleep_button_color()
@@ -891,7 +920,7 @@ class MiniDiego:
         
         admin_win = tk.Toplevel(self.root)
         admin_win.title("Panel Admin")
-        admin_win.geometry("320x380")
+        admin_win.geometry("320x500")
         admin_win.attributes("-topmost", True)
         admin_win.configure(bg="#1a1a1a")
         
@@ -902,12 +931,22 @@ class MiniDiego:
         tk.Label(admin_win, text="Forzar minijuego:",
                 font=("Arial", 11, "bold"), bg="#1a1a1a", fg="white").pack(pady=8)
         
-        tk.Button(admin_win, text="Quiz", command=lambda: self.launch_minigame(MathQuiz), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=4)
-        tk.Button(admin_win, text="Memoria", command=lambda: self.launch_minigame(MemoryGame), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=4)
-        tk.Button(admin_win, text="Stroop", command=lambda: self.launch_minigame(StroopGame), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=4)
+        # Frame con scroll para los juegos
+        game_frame = tk.Frame(admin_win, bg="#1a1a1a")
+        game_frame.pack(pady=5)
+        
+        tk.Button(game_frame, text="Quiz", command=lambda: self.launch_minigame(MathQuiz), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
+        tk.Button(game_frame, text="Memoria", command=lambda: self.launch_minigame(MemoryGame), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
+        tk.Button(game_frame, text="Stroop", command=lambda: self.launch_minigame(StroopGame), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
+        tk.Button(game_frame, text="Snake", command=lambda: self.launch_minigame(SnakeGame), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
+        tk.Button(game_frame, text="Tetris", command=lambda: self.launch_minigame(TetrisGame), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
+        tk.Button(game_frame, text="Click Rapido", command=lambda: self.launch_minigame(ClickRapido), 
+                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
         
         tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=5)
         
@@ -924,6 +963,7 @@ class MiniDiego:
                  width=22, bg="#FF9800", fg="white", font=("Arial", 10)).pack(pady=6)
         tk.Button(admin_win, text="SALIR", command=self.root.quit, 
                  width=22, bg="#f44336", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
+    
     def restore_stats(self):
         """Restaurar stats"""
         self.hambre = 100
@@ -931,50 +971,6 @@ class MiniDiego:
         self.higiene = 100
         self.felicidad = 100
         self.update_display()
-    def save_game(self):
-        """Guarda progreso"""
-        data = {
-            'hambre': self.hambre,
-            'sueno': self.sueno,
-            'higiene': self.higiene,
-            'felicidad': self.felicidad,
-            'game_start_time': self.game_start_time,
-            'pause_time_used': self.pause_time_used,
-            'sleeping': self.sleeping,
-            'sleep_start_time': self.sleep_start_time
-        }
-        try:
-            with open('save.json', 'w') as f:
-                json.dump(data, f)
-        except:
-            pass
-    
-    def load_game(self):
-        """Carga progreso"""
-        try:
-            if os.path.exists('save.json'):
-                with open('save.json', 'r') as f:
-                    data = json.load(f)
-                self.hambre = data.get('hambre', 50)
-                self.sueno = data.get('sueno', 50)
-                self.higiene = data.get('higiene', 50)
-                self.felicidad = data.get('felicidad', 50)
-                self.game_start_time = data.get('game_start_time', time.time())
-                self.pause_time_used = data.get('pause_time_used', 0)
-                self.sleeping = data.get('sleeping', False)
-                self.sleep_start_time = data.get('sleep_start_time', None)
-        except:
-            pass
-    
-    def _autosave_loop(self):
-        """Guarda cada minuto"""
-        while True:
-            try:
-                if self.alive:
-                    self.save_game()
-                time.sleep(60)
-            except:
-                time.sleep(60)
     
 
 def main():

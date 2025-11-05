@@ -4,54 +4,62 @@ import random
 
 class Roulette:
     def __init__(self, parent_window, sectors, callback, title="Ruleta"):
-        """Ruleta en ventana INDEPENDIENTE - SIEMPRE EN PRIMERA PANTALLA"""
+        """Ruleta con diseño renovado - Ventana flotante"""
         self.callback = callback
         self.sectors = sectors[:]
         self.n = len(self.sectors)
         self.title = title
         
-        # Crear ventana NUEVA e independiente
+        # Ventana flotante sin bordes
         self.window = tk.Toplevel()
-        self.window.title(title)
-        
-        # CRÍTICO: Ventana SIEMPRE en frente
+        self.window.title("")
+        self.window.overrideredirect(True)
         self.window.attributes("-topmost", True)
-        self.window.attributes("-fullscreen", False)
-        self.window.focus_force()
-        self.window.grab_set()  # Modal
-        
-        # Tamaño y posición centrada
-        screen_width = self.window.winfo_screenwidth()
-        screen_height = self.window.winfo_screenheight()
-        
-        width = 900
-        height = 700
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
-        
-        self.window.geometry(f"{width}x{height}+{x}+{y}")
         self.window.configure(bg="#1a1a1a")
         
-        # Canvas para la ruleta
+        # Canvas
+        width = 700
+        height = 600
         self.canvas = tk.Canvas(self.window, bg="#1a1a1a", 
                                highlightthickness=0, width=width, height=height)
         self.canvas.pack(fill="both", expand=True)
         
+        # Geometría centrada
+        self.window.update_idletasks()
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        self.window.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Arrastrable
+        self.canvas.bind("<Button-1>", self._start_drag)
+        self.canvas.bind("<B1-Motion>", self._drag)
+        
         self.size = 350
-        self.radius = 130
+        self.radius = 140
         self.angle = 0
         self.v = 0
         self.dec = 0
         self.spinning = False
         
         self.center_x = width // 2
-        self.center_y = height // 2
+        self.center_y = height // 2 - 20
         
         self.widgets = []
         self.draw_roulette(0)
     
+    def _start_drag(self, event):
+        self._drag_data = {"x": event.x, "y": event.y}
+    
+    def _drag(self, event):
+        if hasattr(self, '_drag_data'):
+            x = self.window.winfo_x() + event.x - self._drag_data["x"]
+            y = self.window.winfo_y() + event.y - self._drag_data["y"]
+            self.window.geometry(f"+{x}+{y}")
+    
     def draw_roulette(self, rotation_angle):
-        """Dibuja la ruleta"""
+        """Dibuja la ruleta con diseño mejorado"""
         # Limpiar widgets anteriores
         for widget_id in self.widgets:
             try:
@@ -60,24 +68,35 @@ class Roulette:
                 pass
         self.widgets.clear()
         
-        # Título
+        # Título elegante
         title_id = self.canvas.create_text(
-            self.center_x, self.center_y - 250,
-            text=self.title, font=("Arial", 24, "bold"),
+            self.center_x, 50,
+            text=self.title, 
+            font=("Arial", 26, "bold"),
             fill="white"
         )
         self.widgets.append(title_id)
         
+        # Subtítulo
+        if not self.spinning:
+            subtitle_id = self.canvas.create_text(
+                self.center_x, 85,
+                text="Haz click en GIRAR para tu recompensa",
+                font=("Arial", 11),
+                fill="#aaa"
+            )
+            self.widgets.append(subtitle_id)
+        
         cx = cy = self.center_x, self.center_y
         per_sector = 360.0 / self.n
         
-        # Colores
-        colors = ["#FF6B6B", "#4ECDC4", "#FFE66D", "#A8E6CF", "#FF8B94", "#C7CEEA"]
+        # Colores vibrantes
+        colors = ["#FF6B6B", "#4ECDC4", "#FFE66D", "#A8E6CF", "#FF8B94", "#C7CEEA", "#95E1D3"]
         
         for i, (label, payload) in enumerate(self.sectors):
             start_angle = (i * per_sector - rotation_angle) % 360
             
-            # Crear polígono
+            # Crear polígono del sector
             points = [self.center_x, self.center_y]
             for step in range(0, 37):
                 angle_rad = math.radians(start_angle + step * (per_sector / 36))
@@ -87,58 +106,60 @@ class Roulette:
             
             color = colors[i % len(colors)]
             sector_id = self.canvas.create_polygon(
-                points, fill=color, outline="white", width=2
+                points, fill=color, outline="white", width=3
             )
             self.widgets.append(sector_id)
             
-            # Texto
+            # Texto del sector
             mid_angle = math.radians(start_angle + per_sector / 2)
             text_distance = self.radius * 0.65
             tx = self.center_x + math.cos(mid_angle) * text_distance
             ty = self.center_y + math.sin(mid_angle) * text_distance
             
             text_id = self.canvas.create_text(
-                tx, ty, text=label, font=("Arial", 11, "bold"),
-                fill="white", width=80, justify="center"
+                tx, ty, text=label, 
+                font=("Arial", 11, "bold"),
+                fill="white", width=90, justify="center"
             )
             self.widgets.append(text_id)
         
-        # Círculo central
+        # Círculo central dorado
         circle_id = self.canvas.create_oval(
-            self.center_x - 20, self.center_y - 20,
-            self.center_x + 20, self.center_y + 20,
-            fill="#FFD700", outline="white", width=2
+            self.center_x - 25, self.center_y - 25,
+            self.center_x + 25, self.center_y + 25,
+            fill="#FFD700", outline="white", width=3
         )
         self.widgets.append(circle_id)
         
-        # Flecha indicador
+        # Flecha indicador (más grande)
         arrow_points = [
-            self.center_x - 15, self.center_y - self.radius - 20,
-            self.center_x + 15, self.center_y - self.radius - 20,
-            self.center_x, self.center_y - self.radius + 5
+            self.center_x - 18, self.center_y - self.radius - 25,
+            self.center_x + 18, self.center_y - self.radius - 25,
+            self.center_x, self.center_y - self.radius + 8
         ]
         arrow_id = self.canvas.create_polygon(
-            arrow_points, fill="#FF0000", outline="white", width=2
+            arrow_points, fill="#FF0000", outline="white", width=3
         )
         self.widgets.append(arrow_id)
         
         # Botón girar (si no está girando)
         if not self.spinning:
             btn_rect = self.canvas.create_rectangle(
-                self.center_x - 80, self.center_y + self.radius + 40,
-                self.center_x + 80, self.center_y + self.radius + 90,
-                fill="#4CAF50", outline="white", width=3
+                self.center_x - 100, self.center_y + self.radius + 50,
+                self.center_x + 100, self.center_y + self.radius + 110,
+                fill="#4CAF50", outline="white", width=4
             )
             self.widgets.append(btn_rect)
             
             btn_text = self.canvas.create_text(
-                self.center_x, self.center_y + self.radius + 65,
-                text="GIRAR", font=("Arial", 18, "bold"),
+                self.center_x, self.center_y + self.radius + 80,
+                text="GIRAR",
+                font=("Arial", 20, "bold"),
                 fill="white"
             )
             self.widgets.append(btn_text)
             
-            # Bind click
+            # Bind click (solo en el botón, no en toda la ventana)
             self.canvas.tag_bind(btn_rect, "<Button-1>", lambda e: self.start())
             self.canvas.tag_bind(btn_text, "<Button-1>", lambda e: self.start())
     
@@ -148,8 +169,8 @@ class Roulette:
             return
         
         self.spinning = True
-        self.v = random.uniform(20, 35)
-        self.dec = random.uniform(0.15, 0.25)
+        self.v = random.uniform(22, 38)
+        self.dec = random.uniform(0.16, 0.26)
         self._animate()
     
     def _animate(self):
@@ -169,8 +190,36 @@ class Roulette:
             idx = self._get_winning_sector()
             label, payload = self.sectors[idx]
             
-            # Esperar y ejecutar callback
-            self.canvas.after(800, lambda: self._finish(payload))
+            # Mostrar resultado antes de cerrar
+            self._show_result(label)
+            self.canvas.after(1500, lambda: self._finish(payload))
+    
+    def _show_result(self, label):
+        """Muestra el resultado ganador"""
+        result_bg = self.canvas.create_rectangle(
+            self.center_x - 150, self.center_y - 60,
+            self.center_x + 150, self.center_y + 60,
+            fill="#1a1a1a", outline="white", width=3
+        )
+        self.widgets.append(result_bg)
+        
+        result_text = self.canvas.create_text(
+            self.center_x, self.center_y - 20,
+            text="RESULTADO:",
+            font=("Arial", 14, "bold"),
+            fill="#FFD700"
+        )
+        self.widgets.append(result_text)
+        
+        winner_text = self.canvas.create_text(
+            self.center_x, self.center_y + 20,
+            text=label,
+            font=("Arial", 16, "bold"),
+            fill="white",
+            width=280,
+            justify="center"
+        )
+        self.widgets.append(winner_text)
     
     def _get_winning_sector(self):
         """Determina el sector ganador"""
